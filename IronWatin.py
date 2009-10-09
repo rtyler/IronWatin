@@ -8,11 +8,11 @@ import WatiN.Core as Watin
 # Python imports
 import sys
 sys.path.append('C:\Python26\Lib')
+sys.path.append('C:\Python25\Lib')
 
+import optparse
 import time
 import unittest
-
-from optparse import OptionParser
 
 class BrowserTest(unittest.TestCase):
     browser = None
@@ -31,55 +31,57 @@ class BrowserTest(unittest.TestCase):
 
         super(BrowserTest, self).tearDown()
 
-class GoogleTest(BrowserTest):
-    url = 'http://images.google.com'
-
-    def runTest(self):
-        print ('runTest', self.url, self.browser)
-
 class _WatinTestResult(unittest._TextTestResult):
     def startTest(self, test):
-        if self.browser:
-            test.browser = self.browser
-        if self.url:
-            test.url = self.url
+        for k, v in self.passed.iteritems():
+            if not v:
+                continue
+            setattr(test, k, v)
         unittest._TextTestResult.startTest(self, test)
 
 class WatinTestRunner(unittest.TextTestRunner):
     def __init__(self, *args, **kwargs):
-        self.browser = kwargs.pop('browser', None)
-        self.url = kwargs.pop('url', None)
+        self.passalong = kwargs.keys()
+        self.__dict__.update(kwargs)
         if self.browser:
             self.browser = self.browser == 'ie' and Watin.IE or Watin.FireFox
-        unittest.TextTestRunner.__init__(self, *args, **kwargs)
+        
+        super_kwargs = dict([(k, v) for k, v in kwargs.iteritems() if v and k in ('stream', 'descriptions', 'verbosity',)])
+        unittest.TextTestRunner.__init__(self, *args, **super_kwargs)
 
     def _makeResult(self):
         rc = _WatinTestResult(self.stream, self.descriptions, self.verbosity)
-        rc.browser = self.browser
-        rc.url = self.url
+        rc.passed = {}
+        for key in self.passalong:
+            rc.passed[key] = getattr(self, key)
         return rc
 
 def main(options=None):
-    op = options or OptionParser()
+    op = options or optparse.OptionParser()
     op.add_option('-b', '--browser', dest='browser', default='ie', 
         help='Specify the browser to use [ie/firefox]')
-    op.add_option('-u', '--url', dest='url', default='http://google.com', 
-        help='Specify the URL to load in the browser')
+    op.add_option('-u', '--url', dest='url', help='Specify the URL to load in the browser')
     op.add_option('-v', '--verbose', dest='verbose', action='store_true')
     op.add_option('-q', '--quiet', dest='quiet', action='store_true')
 
+    # Blacklist of members of optparse.Values to ignore
+    blacklist = dir(optparse.Values)
+
     opts, args = op.parse_args()
+    kwargs = dict([(k, getattr(opts, k)) for k in dir(opts) if not k in blacklist])
+    kwargs.pop('quiet')
+    kwargs.pop('verbose')
 
-    verbosity = 1
+    kwargs['verbosity'] = 1
     if opts.quiet:
-        verbosity = 0
+        kwargs['verbosity'] = 0
     if opts.verbose:
-        verbosity = 2
+        kwargs['verbosity'] = 2
 
-    tests = unittest.findTestCases(sys.modules[__name__])
-    runner = WatinTestRunner(browser=opts.browser, url=opts.url, verbosity=verbosity)
-    print ('tests', tests, type(tests))
+    tests = unittest.findTestCases(sys.modules['__main__'])
+    runner = WatinTestRunner(**kwargs)
     runner.run(tests)
 
 if __name__ == '__main__':
     main()
+
