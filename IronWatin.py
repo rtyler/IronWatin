@@ -80,7 +80,9 @@ def main(options=None):
 
     tests = unittest.findTestCases(sys.modules['__main__'])
     runner = WatinTestRunner(**kwargs)
-    runner.run(tests)
+    rc = runner.run(tests)
+    if not rc.wasSuccessful():
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
