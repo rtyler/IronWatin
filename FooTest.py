@@ -11,12 +11,16 @@ from optparse import OptionParser
 
 
 class FooTest(IronWatin.BrowserTest):
-	url = 'http://yahoo.com'
-	def runTest(self):
-		print ('self', self.__dict__)
+    url = 'http://yahoo.com'
+
+    @IronWatin.record(prefix='foo_test')
+    def runTest(self):
+        self.browser.Element(Watin.Find.ByName('p')).WaitUntilExists()
+        self.browser.Element(Watin.Find.ByName('p')).Click()
+        self.browser.TextField(Watin.Find.ByName('p')).TypeText('IronWatin FTW')
 
 
 if __name__ == '__main__':
-	op = OptionParser()
-	op.add_option('--email', dest='email')
-	IronWatin.main(options=op)
+    op = OptionParser()
+    op.add_option('--email', dest='email')
+    IronWatin.main(options=op)
